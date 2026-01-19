@@ -1,0 +1,10 @@
+{
+  "name": "frontend-build-agent",
+  "version": "1.0.0",
+  "description": "Node.js agent to compile a frontend project with GPT guidance on Ubuntu 20.04",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js"
+  },
+  "license": "MIT"
+}
