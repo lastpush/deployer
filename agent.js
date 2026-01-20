@@ -311,8 +311,46 @@ async function moveToRelease(outputDir) {
   await ensureDir(RELEASE_DIR);
   const destDir = path.join(RELEASE_DIR, "dist");
   await removeDir(destDir);
-  await fs.promises.rename(outputDir, destDir);
+
+  try {
+    await fs.promises.rename(outputDir, destDir);
+  } catch (err) {
+    if (err && err.code === "EXDEV") {
+      if (typeof fs.promises.cp === "function") {
+        await fs.promises.cp(outputDir, destDir, { recursive: true, force: true });
+      } else {
+        await copyDirFallback(outputDir, destDir);
+      }
+      if (fs.promises.rm) {
+        await fs.promises.rm(outputDir, { recursive: true, force: true });
+      } else {
+        await execCommand(`rm -rf "${outputDir}"`, ROOT_DIR);
+      }
+    } else {
+      throw err;
+    }
+  }
+
   return destDir;
+}
+
+async function copyDirFallback(src, dst) {
+  await fs.promises.mkdir(dst, { recursive: true });
+  const entries = await fs.promises.readdir(src, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const dstPath = path.join(dst, entry.name);
+
+    if (entry.isDirectory()) {
+      await copyDirFallback(srcPath, dstPath);
+    } else if (entry.isSymbolicLink()) {
+      const link = await fs.promises.readlink(srcPath);
+      await fs.promises.symlink(link, dstPath);
+    } else {
+      await fs.promises.copyFile(srcPath, dstPath);
+    }
+  }
 }
 
 async function main() {
