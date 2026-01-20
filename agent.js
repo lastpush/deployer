@@ -159,6 +159,32 @@ function resolveChatCompletionsUrl(rawUrl) {
   return `${trimmed}/v1/chat/completions`;
 }
 
+function normalizeNginxConfig(configText) {
+  return (configText || "").trim();
+}
+
+function isValidNginxPseudoStatic(configText) {
+  const normalized = normalizeNginxConfig(configText);
+  if (!normalized) {
+    return false;
+  }
+  if (!/location\s+\/\s*\{[\s\S]*\}/.test(normalized)) {
+    return false;
+  }
+  if (!/[;]\s*$/.test(normalized.replace(/\s+$/g, ""))) {
+    return false;
+  }
+  return true;
+}
+
+function defaultNginxPseudoStatic() {
+  return [
+    "location / {",
+    "    try_files $uri /index.html;",
+    "}"
+  ].join("\n");
+}
+
 function callOpenAI(messages) {
   const body = JSON.stringify({
     model: OPENAI_MODEL,
@@ -353,8 +379,12 @@ async function main() {
     { role: "user", content: pseudoStaticPrompt }
   ];
   const pseudoStaticConfig = await callOpenAI(pseudoStaticMessages);
+  const normalizedConfig = normalizeNginxConfig(pseudoStaticConfig);
+  const finalConfig = isValidNginxPseudoStatic(normalizedConfig)
+    ? normalizedConfig
+    : defaultNginxPseudoStatic();
   const pseudoStaticPath = path.join(RELEASE_DIR, "Pseudo-static");
-  await fs.promises.writeFile(pseudoStaticPath, `${pseudoStaticConfig.trim()}\n`, "utf8");
+  await fs.promises.writeFile(pseudoStaticPath, `${finalConfig}\n`, "utf8");
   console.log(`Pseudo-static config saved at: ${pseudoStaticPath}`);
 }
 
