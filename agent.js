@@ -148,13 +148,24 @@ function summarizeOutput(result) {
   return `${combined.slice(0, limit)}\n...(truncated)`;
 }
 
+function resolveChatCompletionsUrl(rawUrl) {
+  const trimmed = rawUrl.replace(/\/+$/, "");
+  if (trimmed.endsWith("/chat/completions")) {
+    return trimmed;
+  }
+  if (trimmed.endsWith("/v1")) {
+    return `${trimmed}/chat/completions`;
+  }
+  return `${trimmed}/v1/chat/completions`;
+}
+
 function callOpenAI(messages) {
   const body = JSON.stringify({
     model: OPENAI_MODEL,
     messages,
     temperature: 0.2
   });
-  const url = new URL(OPENAI_API_URL);
+  const url = new URL(resolveChatCompletionsUrl(OPENAI_API_URL));
   const options = {
     method: "POST",
     hostname: url.hostname,
