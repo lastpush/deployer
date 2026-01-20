@@ -4,7 +4,9 @@
   "description": "Node.js agent to compile a frontend project with GPT guidance on Ubuntu 20.04",
   "main": "agent.js",
   "scripts": {
-    "start": "node agent.js"
+    "start": "node agent.js",
+    "release": "node agent.js",
+    "clean": "rm -rf release/* source/* task/*"
   },
   "license": "MIT",
   "dependencies": {
