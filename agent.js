@@ -6,7 +6,7 @@ const { exec } = require("child_process");
 require("dotenv").config();
 
 const ROOT_DIR = process.cwd();
-const TASK_ZIP = path.join(ROOT_DIR, "task", "main.zip");
+const TASK_DIR = path.join(ROOT_DIR, "task");
 const SOURCE_DIR = path.join(ROOT_DIR, "source");
 const RELEASE_DIR = path.join(ROOT_DIR, "release");
 const MAX_STEPS = Number.parseInt(process.env.MAX_STEPS || "30", 10);
@@ -63,9 +63,35 @@ async function removeDir(targetPath) {
   await execCommand(`rm -rf "${targetPath}"`, ROOT_DIR);
 }
 
-async function unzipTask() {
+async function findTaskArchive() {
+  const entries = await fs.promises.readdir(TASK_DIR, { withFileTypes: true });
+  const candidates = entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .filter((name) => /\.(zip|7z|tar\.gz|tgz|rar)$/i.test(name))
+    .sort();
+  if (candidates.length === 0) {
+    throw new Error(`No archive found in ${TASK_DIR}. Expected zip/7z/tar.gz/rar.`);
+  }
+  return path.join(TASK_DIR, candidates[0]);
+}
+
+async function unzipTask(archivePath) {
   await ensureDir(SOURCE_DIR);
-  const result = await execCommand(`unzip -o "${TASK_ZIP}" -d "${SOURCE_DIR}"`, ROOT_DIR);
+  const lower = archivePath.toLowerCase();
+  let command = "";
+  if (lower.endsWith(".zip")) {
+    command = `unzip -o "${archivePath}" -d "${SOURCE_DIR}"`;
+  } else if (lower.endsWith(".7z")) {
+    command = `7z x "${archivePath}" -o"${SOURCE_DIR}" -y`;
+  } else if (lower.endsWith(".tar.gz") || lower.endsWith(".tgz")) {
+    command = `tar -xzf "${archivePath}" -C "${SOURCE_DIR}"`;
+  } else if (lower.endsWith(".rar")) {
+    command = `7z x "${archivePath}" -o"${SOURCE_DIR}" -y || unrar x "${archivePath}" "${SOURCE_DIR}"`;
+  } else {
+    throw new Error(`Unsupported archive format: ${archivePath}`);
+  }
+  const result = await execCommand(command, ROOT_DIR);
   if (result.code !== 0) {
     throw new Error(`unzip failed: ${result.stderr || result.stdout}`);
   }
@@ -283,19 +309,21 @@ async function findStaticOutputDir(rootDir) {
 
 async function moveToRelease(outputDir) {
   await ensureDir(RELEASE_DIR);
-  const destDir = path.join(RELEASE_DIR, path.basename(outputDir));
+  const destDir = path.join(RELEASE_DIR, "dist");
   await removeDir(destDir);
   await fs.promises.rename(outputDir, destDir);
   return destDir;
 }
 
 async function main() {
-  if (!(await pathExists(TASK_ZIP))) {
-    throw new Error(`Zip not found: ${TASK_ZIP}`);
+  if (!(await pathExists(TASK_DIR))) {
+    throw new Error(`Task directory not found: ${TASK_DIR}`);
   }
 
   console.log("Step 1: Unzipping task/main.zip...");
-  await unzipTask();
+  const archivePath = await findTaskArchive();
+  console.log(`Step 1: Unzipping ${path.basename(archivePath)}...`);
+  await unzipTask(archivePath);
 
   console.log("Step 2: Collecting project info...");
   const dirInfo = await listDirInfo(SOURCE_DIR, 1);
