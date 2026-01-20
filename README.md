@@ -37,3 +37,51 @@ The agent will:
 
 - `OPENAI_MODEL` (default: `gpt-4o-mini`)
 - `MAX_STEPS` (default: `30`)
+
+## Docker
+
+What i should do?
+
+First
+```
+mkdir /root/deployer
+
+mkdir /root/deployer/task
+
+mkdir /root/deployer/release
+```
+
+Download the image and 
+
+```
+docker import deployer-0-1-0.tar.gz
+```
+
+Start the docker:
+1. write `docker-compose.yml`
+```
+version: "3.8"
+
+services:
+  deployer:
+    image: deployer:0.1.0
+    container_name: deployer
+    ports:
+      - "2222:22"
+    volumes:
+      - /root/deployer/release:/root/deployer/release
+      - /root/deployer/task:/root/deployer/task
+    restart: unless-stopped
+
+```
+2. Run `docker compose up -d`
+
+Run me to deploy 
+```
+docker exec -w /root/deployer deployer npm run start
+```
+
+Run me to clean
+```
+docker exec -w /root/deployer deployer npm run clean
+```
