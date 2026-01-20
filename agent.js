@@ -328,6 +328,34 @@ async function main() {
   }
   const destDir = await moveToRelease(outputDir);
   console.log(`Release ready at: ${destDir}`);
+
+  console.log("Step 5: Requesting pseudo-static nginx config...");
+  const pseudoStaticPrompt = [
+    "该项目适合使用如下那种nginx伪静态代码:",
+    "",
+    "    location / {",
+    "        try_files $uri /index.html;",
+    "    }",
+    "",
+    "或",
+    "",
+    "location / {",
+    "    if (!-e $request_filename){",
+    "        rewrite ^(.*)$ /$1.html last;",
+    "        break;",
+    "    }",
+    "}",
+    "",
+    "如果这两者都不适用。则编写你认为适用的伪静态代码。要求最后只返回伪静态代码。"
+  ].join("\n");
+  const pseudoStaticMessages = [
+    systemMessage,
+    { role: "user", content: pseudoStaticPrompt }
+  ];
+  const pseudoStaticConfig = await callOpenAI(pseudoStaticMessages);
+  const pseudoStaticPath = path.join(RELEASE_DIR, "Pseudo-static");
+  await fs.promises.writeFile(pseudoStaticPath, `${pseudoStaticConfig.trim()}\n`, "utf8");
+  console.log(`Pseudo-static config saved at: ${pseudoStaticPath}`);
 }
 
 main().catch((error) => {
