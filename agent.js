@@ -3,17 +3,30 @@ const path = require("path");
 const https = require("https");
 const { exec } = require("child_process");
 
+require("dotenv").config();
+
 const ROOT_DIR = process.cwd();
 const TASK_ZIP = path.join(ROOT_DIR, "task", "main.zip");
 const SOURCE_DIR = path.join(ROOT_DIR, "source");
 const RELEASE_DIR = path.join(ROOT_DIR, "release");
 const MAX_STEPS = Number.parseInt(process.env.MAX_STEPS || "30", 10);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_API_URL = process.env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions";
+const OPENAI_API_URL = process.env.OPENAI_API_URL;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const OPENAI_EMBEDDINGS_MODEL = process.env.OPENAI_EMBEDDINGS_MODEL;
 
 if (!OPENAI_API_KEY) {
   console.error("Missing OPENAI_API_KEY.");
+  process.exit(1);
+}
+
+if (!OPENAI_API_URL) {
+  console.error("Missing OPENAI_API_URL.");
+  process.exit(1);
+}
+
+if (!OPENAI_EMBEDDINGS_MODEL) {
+  console.error("Missing OPENAI_EMBEDDINGS_MODEL.");
   process.exit(1);
 }
 
