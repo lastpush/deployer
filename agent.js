@@ -312,23 +312,27 @@ async function moveToRelease(outputDir) {
   const destDir = path.join(RELEASE_DIR, "dist");
   await removeDir(destDir);
 
-  try {
-    await fs.promises.rename(outputDir, destDir);
-  } catch (err) {
-    if (err && err.code === "EXDEV") {
-      if (typeof fs.promises.cp === "function") {
-        await fs.promises.cp(outputDir, destDir, { recursive: true, force: true });
-      } else {
-        await copyDirFallback(outputDir, destDir);
+  const sameDevice = await isSameDevice(outputDir, RELEASE_DIR);
+  if (sameDevice) {
+    try {
+      await fs.promises.rename(outputDir, destDir);
+      return destDir;
+    } catch (err) {
+      if (!err || err.code !== "EXDEV") {
+        throw err;
       }
-      if (fs.promises.rm) {
-        await fs.promises.rm(outputDir, { recursive: true, force: true });
-      } else {
-        await execCommand(`rm -rf "${outputDir}"`, ROOT_DIR);
-      }
-    } else {
-      throw err;
     }
+  }
+
+  if (typeof fs.promises.cp === "function") {
+    await fs.promises.cp(outputDir, destDir, { recursive: true, force: true });
+  } else {
+    await copyDirFallback(outputDir, destDir);
+  }
+  if (fs.promises.rm) {
+    await fs.promises.rm(outputDir, { recursive: true, force: true });
+  } else {
+    await execCommand(`rm -rf "${outputDir}"`, ROOT_DIR);
   }
 
   return destDir;
@@ -350,6 +354,16 @@ async function copyDirFallback(src, dst) {
     } else {
       await fs.promises.copyFile(srcPath, dstPath);
     }
+  }
+}
+
+async function isSameDevice(sourcePath, targetPath) {
+  try {
+    const sourceStat = await fs.promises.stat(sourcePath);
+    const targetStat = await fs.promises.stat(targetPath);
+    return sourceStat.dev === targetStat.dev;
+  } catch {
+    return false;
   }
 }
 
